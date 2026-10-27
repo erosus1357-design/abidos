@@ -5,22 +5,26 @@ Platform dyal tracking l'performance dyal media buyers (COD): products, leads, c
 - **Admin** (nta): kaychouf kolchi — ga3 l'buyers, ga3 l'products, ranking, kaycree logins.
 - **Media buyer**: kaychouf ghir les products li 3tito lih + l'arqam dyalo + commission dyalo.
 
-## Installation (Railway — l'as-hel)
+## Installation gratuite (Render + Turso)
 
-1. Dir compte f **github.com** o **railway.app** (b GitHub).
-2. F GitHub: *New repository* → `sellerhub` (Private) → *uploading an existing file* → jerr ga3 les fichiers.
-3. F Railway: *New Project* → *Deploy from GitHub repo* → khtar `sellerhub`.
-4. F service → **Variables**, zid:
+**1. Database — Turso (gratuit)**
+1. Dkhel l **turso.tech** b GitHub → *Create database* (ex: `sellerhub`, région la plus proche: Frankfurt / Paris).
+2. Copi **Database URL** (`libsql://…turso.io`) o cree **Token** (*Create token*, read & write).
+
+**2. Application — Render (gratuit)**
+1. Dkhel l **render.com** b GitHub → *New → Web Service* → khtar repo `abidos`.
+2. Runtime: **Docker** (Dockerfile kayn f repo). Plan: **Free**.
+3. **Environment variables:**
+   - `TURSO_DATABASE_URL` = URL dyal Turso
+   - `TURSO_AUTH_TOKEN` = token dyal Turso
    - `ADMIN_USERNAME` = username dyalek (ex: `msa`)
    - `ADMIN_PASSWORD` = password qwi
-   - `APP_NAME` = smiya li bghiti tban (par défaut: `Sellerhub`)
-   - `TIMEZONE` = `Africa/Casablanca` (bach dates dyal orders ykono s7a7)
-5. F service → **Settings → Volumes** → *Add volume*, mount path: `/data` (bach database matmchich).
-6. **Settings → Networking → Generate Domain** → hada howa l'link dyal platform.
-7. Dkhel b username/password dyal admin → **Media buyers** → *New media buyer*.
-   L'login kaytcopia automatiquement — sifto l buyer.
+   - `TIMEZONE` = `Africa/Casablanca`
+   - `APP_NAME` = `Sellerhub` (optionnel)
+4. *Create Web Service* → mnin ysali l'build, link howa `https://….onrender.com`.
 
-> Admin kaytcree ghir l'merra lowla (ila database khawya). Mn b3d bdel password men **Settings**.
+> F l'plan Free, Render kayna3es ba3d 15 min bla visites: l'ouverture lowla kat3tel ~30 s. Database f Turso, donc walou ma kaytmsa7.
+> Admin kaytcree ghir l'merra lowla (ila database khawya). Mn b3d bdel password men **Mon compte**.
 
 ## Store integrations (Shopify, YouCan, LightFunnels, Dropify, Google Sheets, ay platform)
 
@@ -66,7 +70,7 @@ mzyan bach t-importi export dyal Lead to Next / call center (livré, retour, con
 
 ```
 npm install
-node server.js      # http://localhost:3000  (admin / admin123 par défaut)
+node server.js      # http://localhost:3000  (admin / admin123 par défaut, SQLite local f data/app.db)
 ```
 
-Backup: database kamla f fichier wa7ed `/data/app.db`.
+Backup: Turso dashboard → database → *Backups / Export*.
