@@ -110,8 +110,8 @@ async function boot() {
   } catch { renderLogin(); }
 }
 async function loadRefs() {
-  S.products = await api('/products');
-  if (S.me.role === 'admin') S.users = await api('/users');
+  const [p, u] = await Promise.all([api('/products'), S.me.role === 'admin' ? api('/users') : null]);
+  S.products = p; if (u) S.users = u;
 }
 window.addEventListener('hashchange', () => S.me && route());
 
@@ -643,7 +643,11 @@ function modal(title, body, onSave, onDelete) {
   const close = () => $('#modal-root').innerHTML = '';
   $$('[data-x]').forEach(b => b.onclick = close);
   $('.ov').onmousedown = e => e.target.classList.contains('ov') && close();
-  $('#mform').onsubmit = async e => { e.preventDefault(); if (!onSave) return close(); try { await onSave(e.target); close(); } catch (er) { toast(er.message, true); } };
+  $('#mform').onsubmit = async e => {
+    e.preventDefault(); if (!onSave) return close();
+    const b = e.target.querySelector('.btn.pri'); if (b.disabled) return; const t = b.textContent; b.disabled = true; b.textContent = 'Enregistrement…';
+    try { await onSave(e.target); close(); } catch (er) { toast(er.message, true); b.disabled = false; b.textContent = t; }
+  };
   if (onDelete) $('#mdel').onclick = async () => { try { if (await onDelete() !== false) close(); } catch (er) { toast(er.message, true); } };
 }
 

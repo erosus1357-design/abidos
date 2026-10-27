@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
+app.use(require('compression')());
 const jsonParser = express.json({ limit: '5mb' });
 app.use((req, res, next) => req.path.startsWith('/hook/') ? next() : jsonParser(req, res, next));
 app.use(cookieParser());
@@ -117,7 +118,7 @@ app.post('/api/login', async (req, res) => {
   if (a.n >= 10) return res.status(429).json({ error: 'Trop de tentatives, réessayez dans 15 min' });
   const { username, password } = req.body || {};
   const u = await db.get('SELECT * FROM users WHERE username=? AND active=1', String(username || '').trim().toLowerCase());
-  if (!u || !bcrypt.compareSync(String(password || ''), u.password_hash)) {
+  if (!u || !await bcrypt.compare(String(password || ''), u.password_hash)) {
     a.n++; loginAttempts.set(ip, a);
     return res.status(401).json({ error: 'Identifiants incorrects' });
   }
@@ -135,9 +136,9 @@ app.get('/api/me', auth, (req, res) => res.json({ ...req.user, appName: APP_NAME
 app.post('/api/me/password', auth, async (req, res) => {
   const { current, next: nw } = req.body || {};
   const u = await db.get('SELECT * FROM users WHERE id=?', req.user.id);
-  if (!bcrypt.compareSync(String(current || ''), u.password_hash)) return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
+  if (!await bcrypt.compare(String(current || ''), u.password_hash)) return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
   if (!nw || nw.length < 6) return res.status(400).json({ error: 'Nouveau mot de passe : 6 caractères minimum' });
-  await db.run('UPDATE users SET password_hash=? WHERE id=?', bcrypt.hashSync(nw, 10), u.id);
+  await db.run('UPDATE users SET password_hash=? WHERE id=?', await bcrypt.hash(nw, 10), u.id);
   res.json({ ok: true });
 });
 
@@ -153,7 +154,7 @@ app.post('/api/users', auth, admin, async (req, res) => {
   if (password.length < 6) return res.status(400).json({ error: 'Mot de passe : 6 caractères minimum' });
   try {
     const r = await db.run('INSERT INTO users (username,name,password_hash,role,commission_pct) VALUES (?,?,?,?,?)',
-      username.trim().toLowerCase(), name.trim(), bcrypt.hashSync(password, 10), role === 'admin' ? 'admin' : 'buyer', +commission_pct || 0);
+      username.trim().toLowerCase(), name.trim(), await bcrypt.hash(password, 10), role === 'admin' ? 'admin' : 'buyer', +commission_pct || 0);
     res.json({ id: r.lastInsertRowid });
   } catch (e) { res.status(400).json({ error: 'Cet identifiant existe déjà' }); }
 });
@@ -166,7 +167,7 @@ app.put('/api/users/:id', auth, admin, async (req, res) => {
   if (password && password.length < 6) return res.status(400).json({ error: 'Mot de passe : 6 caractères minimum' });
   await db.run('UPDATE users SET name=?,commission_pct=?,active=?,role=? WHERE id=?', name, +commission_pct || 0, active ? 1 : 0, role, id);
   if (password) {
-    await db.run('UPDATE users SET password_hash=? WHERE id=?', bcrypt.hashSync(password, 10), id);
+    await db.run('UPDATE users SET password_hash=? WHERE id=?', await bcrypt.hash(password, 10), id);
     await db.run('DELETE FROM sessions WHERE user_id=?', id);
   }
   if (!active) await db.run('DELETE FROM sessions WHERE user_id=?', id);
@@ -405,7 +406,7 @@ app.get('/api/leaderboard', auth, async (req, res) => {
   });
 });
 
-app.use('/vendor', express.static(path.join(__dirname, 'node_modules', 'chart.js', 'dist')));
+app.use('/vendor', express.static(path.join(__dirname, 'node_modules', 'chart.js', 'dist'), { maxAge: '7d' }));
 const STATIC = { '/styles.css': 'styles.css', '/app.js': 'app.js', '/ui-integrations.js': 'ui-integrations.js' };
 for (const [route, file] of Object.entries(STATIC)) app.get(route, (req, res) => res.sendFile(path.join(__dirname, file)));
 app.get(/^\/(?!api|hook).*/, (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -418,7 +419,7 @@ async function main() {
   if (!await db.get("SELECT 1 x FROM users WHERE role='admin'")) {
     const u = (process.env.ADMIN_USERNAME || 'admin').trim().toLowerCase();
     const p = process.env.ADMIN_PASSWORD || 'admin123';
-    await db.run("INSERT INTO users (username,name,password_hash,role) VALUES (?,?,?,'admin')", u, 'Admin', bcrypt.hashSync(p, 10));
+    await db.run("INSERT INTO users (username,name,password_hash,role) VALUES (?,?,?,'admin')", u, 'Admin', await bcrypt.hash(p, 10));
     console.log(`[setup] admin created: ${u}${process.env.ADMIN_PASSWORD ? '' : ' / admin123 (CHANGE IT!)'}`);
   }
   setInterval(() => db.run('DELETE FROM sessions WHERE expires_at<?', Date.now()).catch(() => { }), 36e5).unref();
